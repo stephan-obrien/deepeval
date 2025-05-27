@@ -16,7 +16,6 @@ import inspect
 import asyncio
 import random
 import atexit
-import signal
 import queue
 import uuid
 import sys
@@ -261,6 +260,7 @@ class TraceManager:
         self.evaluating = False
 
         # trace manager attributes
+        self.confident_api_key = None
         self.custom_mask_fn: Optional[Callable] = None
         self.environment = os.environ.get(
             CONFIDENT_TRACE_ENVIRONMENT, Environment.DEVELOPMENT.value
@@ -272,20 +272,6 @@ class TraceManager:
 
         # Register an exit handler to warn about unprocessed traces
         atexit.register(self._warn_on_exit)
-        signal.signal(signal.SIGINT, self._on_signal)
-        signal.signal(signal.SIGTERM, self._on_signal)
-
-    def _on_signal(self, signum, frame):
-        queue_size = self._trace_queue.qsize()
-        in_flight = len(self._in_flight_tasks)
-        remaining_tasks = queue_size + in_flight
-        if os.getenv(CONFIDENT_TRACE_FLUSH) != "YES" and remaining_tasks > 0:
-            self._print_trace_status(
-                message=f"INTERRUPTED: Exiting with {queue_size + in_flight} trace(s) remaining to be posted.",
-                trace_worker_status=TraceWorkerStatus.WARNING,
-            )
-
-        sys.exit(0)
 
     def _warn_on_exit(self):
         queue_size = self._trace_queue.qsize()
@@ -309,6 +295,7 @@ class TraceManager:
         mask: Optional[Callable] = None,
         environment: Optional[str] = None,
         sampling_rate: Optional[float] = None,
+        confident_api_key: Optional[str] = None,
     ) -> None:
         if mask is not None:
             self.custom_mask_fn = mask
@@ -318,6 +305,8 @@ class TraceManager:
         if sampling_rate is not None:
             validate_sampling_rate(sampling_rate)
             self.sampling_rate = sampling_rate
+        if confident_api_key is not None:
+            self.confident_api_key = confident_api_key
 
     def start_new_trace(self) -> Trace:
         """Start a new trace and set it as the current trace."""
@@ -539,7 +528,7 @@ class TraceManager:
                     body = trace_api.dict(by_alias=True, exclude_none=True)
                 # If the main thread is still alive, send now
                 if main_thr.is_alive():
-                    api = Api()
+                    api = Api(api_key=self.confident_api_key)
                     response = await api.a_send_request(
                         method=HttpMethods.POST,
                         endpoint=Endpoints.TRACING_ENDPOINT,
@@ -627,7 +616,7 @@ class TraceManager:
         for body in remaining_trace_request_bodies:
             with capture_send_trace():
                 try:
-                    api = Api()
+                    api = Api(api_key=self.confident_api_key)
                     resp = api.send_request(
                         method=HttpMethods.POST,
                         endpoint=Endpoints.TRACING_ENDPOINT,
@@ -923,6 +912,10 @@ class Observer:
                 current_span_context.set(None)
         else:
             current_trace = current_trace_context.get()
+            if current_trace.input is None:
+                current_trace.input = self.function_kwargs
+            if current_trace.output is None:
+                current_trace.output = self.result
             if current_trace and current_trace.uuid == current_span.trace_uuid:
                 other_active_spans = [
                     span

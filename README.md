@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-    <a href="https://discord.com/invite/a3K9c8GRGt">
-        <img alt="discord-invite" src="https://dcbadge.vercel.app/api/server/a3K9c8GRGt?style=flat">
+    <a href="https://discord.gg/3SEyvpgu2f">
+        <img alt="discord-invite" src="https://dcbadge.vercel.app/api/server/3SEyvpgu2f?style=flat">
     </a>
 </p>
 
@@ -43,7 +43,7 @@ Whether your LLM applications are RAG pipelines, chatbots, AI agents, implemente
 >
 > ![Demo GIF](assets/demo.gif)
 
-> Want to talk LLM evaluation, need help picking metrics, or just to say hi? [Come join our discord.](https://discord.com/invite/a3K9c8GRGt)
+> Want to talk LLM evaluation, need help picking metrics, or just to say hi? [Come join our discord.](https://discord.com/invite/3SEyvpgu2f)
 
 <br />
 
